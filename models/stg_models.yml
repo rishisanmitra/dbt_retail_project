@@ -1,0 +1,12 @@
+version: 2
+
+models:
+  - name: stg_sales_details
+    columns:
+      - name: order_number
+        tests:
+          - unique
+          - not_null
+      - name: product_key
+        tests:
+          - not_null
