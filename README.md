@@ -13,17 +13,21 @@ This project completely eliminates that fragility by migrating the retail data w
 * How does an analytics engineering team maintain and evolve complex transformation logic without breaking downstream reports?
 * What does a production-grade, cloud-native data pipeline actually look like from raw ingestion to the final reporting layer?
 
-[Image of modern data stack architecture showing Snowflake dbt and cloud storage]
+![Cloud Data Architecture](assets/cloud-architecture.png) 
 
 ## The Three-Layer Cloud Architecture
 * **Bronze (Raw):** Data is loaded from Google Cloud Platform (GCP) object storage into Snowflake via External Stages. There is absolutely no transformation at this step; it serves as an exact, immutable replica of the source systems for strict audit preservation.
-* **Silver (Staging):** I engineered dbt models to standardize data types, strip legacy key prefixes, extract embedded category codes, and attach audit timestamps. These models are materialized as Snowflake Views to maintain a minimal storage footprint.
-* **Gold (Marts):** I built a Kimball-style Star Schema. The dim_customers and dim_products models are constructed by joining the CRM and ERP staging models, utilizing COALESCE statements to intelligently handle legacy attribute gaps. The fact_sales model joins the transaction data strictly to surrogate keys. These models are materialized as Snowflake Tables for maximum BI query performance.
+* **Silver (Staging):** I engineered dbt models to standardize data types, strip legacy key prefixes, extract embedded category codes, and attach audit timestamps. These models are materialized as Snowflake `Views` to maintain a minimal storage footprint.
+* **Gold (Marts):** I built a Kimball-style Star Schema. The `dim_customers` and `dim_products` models are constructed by joining the CRM and ERP staging models, utilizing `COALESCE` statements to intelligently handle legacy attribute gaps. The `fact_sales` model joins the transaction data strictly to surrogate keys. These models are materialized as Snowflake `Tables` for maximum BI query performance.
+
+![dbt Lineage Graph](assets/dbt-lineage-graph.png)
 
 ## What Makes This Different: Data As Code
-This is fundamentally different from a standard ETL build. Every single transformation is a .sql file committed in Git—fully version-controlled, peer-reviewable, and rollback-safe. 
+This is fundamentally different from a standard ETL build. Every single transformation is a `.sql` file committed in Git—fully version-controlled, peer-reviewable, and rollback-safe. 
 
-Data quality is rigorously enforced via dbt YAML tests (unique, not_null on primary and foreign keys) that execute before any model is deployed. If a test fails, the build is blocked from reaching production. Additionally, data lineage is fully documented; dbt generates a visual DAG (Directed Acyclic Graph) showing exactly how every final table was constructed and exactly which source tables feed it.
+Data quality is rigorously enforced via dbt YAML tests (`unique`, `not_null` on primary and foreign keys) that execute before any model is deployed. If a test fails, the build is blocked from reaching production. Additionally, data lineage is fully documented; dbt generates a visual DAG (Directed Acyclic Graph) showing exactly how every final table was constructed and exactly which source tables feed it.
+
+![dbt Automated Testing Results](assets/dbt-test-results.png)
 
 ## Technical Workflow
 * **Cloud Compute & Storage:** Snowflake, Google Cloud Platform (GCP)
@@ -32,4 +36,7 @@ Data quality is rigorously enforced via dbt YAML tests (unique, not_null on prim
 * **Techniques:** CTEs, Materialization Strategy (Views vs. Tables), Surrogate Key Generation, YAML Testing
 
 ### How to Run
-1. Clone the repository and navigate to 04_data
+1. Clone the repository and navigate to `04_data_modeling_and_storage/4_3_cloud_data_warehouse/`.
+2. Review `dbt_project.yml` for materialization configurations.
+3. Run `dbt deps` to install packages, followed by `dbt build` to execute the models and tests simultaneously.
+4. Run `dbt docs generate` and `dbt docs serve` to view the interactive lineage graph and model documentation.
