@@ -1,55 +1,35 @@
-# Cloud Data Warehouse Migration: Snowflake & dbt
+# Project 4.3: Taking the Data Warehouse to the Cloud (Snowflake & dbt)
 
-## Project Overview
-This project demonstrates the migration of a traditional, on-premise retail data warehouse into a highly scalable Modern Data Stack. It transforms raw, disparate datasets (CRM and ERP data) into a business-ready Star Schema using the Medallion Architecture (Bronze, Silver, Gold). 
+## Business Context & Problem Statement
+Project 4.2 successfully proved the data warehouse concept on a localized SQL Server instance. However, enterprise-scale analytics demands much more: the ability to scale compute power on demand, run concurrent queries without database lock contention, and, most importantly, maintain data transformations as version-controlled code rather than manually executed scripts.
 
-By utilizing **Snowflake** for cloud compute and **dbt (data build tool)** for transformation and testing, this pipeline treats data as code, ensuring high data quality, version control, and automated lineage.
+In a traditional on-premise warehouse, adding a new financial report means a Database Administrator manually runs SQL scripts in the correct order, hopes the sequence hasn't been broken, and manually validates the final output. One single mistake, and bad data flows to the executive team without anyone noticing until a manager spots an incorrect number in a board meeting. 
 
-## Architecture & Tech Stack
-* **Data Lake / Storage:** Google Cloud Platform (GCP)
-* **Cloud Data Warehouse:** Snowflake
-* **Data Transformation & Orchestration:** dbt (Data Build Tool)
-* **Version Control:** Git & GitHub
+This project completely eliminates that fragility by migrating the retail data warehouse into the Modern Data Stack. By treating data transformations as code—version-controlled in Git, automatically tested before deployment, and lineage-tracked across every table—we guarantee data trust at scale.
 
+## Key Questions This Architecture Answers
+* How does a retail business seamlessly integrate its disparate CRM and ERP data into a single, query-ready model in the cloud?
+* How do you enforce data quality automatically, without relying on manual QA spot-checks?
+* How does an analytics engineering team maintain and evolve complex transformation logic without breaking downstream reports?
+* What does a production-grade, cloud-native data pipeline actually look like from raw ingestion to the final reporting layer?
 
+[Image of modern data stack architecture showing Snowflake dbt and cloud storage]
 
-## Data Modeling Strategy: The Medallion Architecture
-The project strictly adheres to the Medallion architecture to ensure logical separation of concerns:
+## The Three-Layer Cloud Architecture
+* **Bronze (Raw):** Data is loaded from Google Cloud Platform (GCP) object storage into Snowflake via External Stages. There is absolutely no transformation at this step; it serves as an exact, immutable replica of the source systems for strict audit preservation.
+* **Silver (Staging):** I engineered dbt models to standardize data types, strip legacy key prefixes, extract embedded category codes, and attach audit timestamps. These models are materialized as Snowflake Views to maintain a minimal storage footprint.
+* **Gold (Marts):** I built a Kimball-style Star Schema. The dim_customers and dim_products models are constructed by joining the CRM and ERP staging models, utilizing COALESCE statements to intelligently handle legacy attribute gaps. The fact_sales model joins the transaction data strictly to surrogate keys. These models are materialized as Snowflake Tables for maximum BI query performance.
 
-### 1. Raw Layer (Bronze)
-* Data is loaded from GCP into Snowflake via External Stages.
-* Represents the exact state of the source systems (CRM sales/customer data and ERP location/product data).
+## What Makes This Different: Data As Code
+This is fundamentally different from a standard ETL build. Every single transformation is a .sql file committed in Git—fully version-controlled, peer-reviewable, and rollback-safe. 
 
-### 2. Staging Layer (Silver)
-* **Objective:** Cleanse, standardize, and prepare data for modeling.
-* **Transformations applied via dbt:**
-  * Standardized data types (e.g., string to date conversions).
-  * Extracted and mapped synthetic category IDs from legacy product keys.
-  * Stripped legacy prefixes/suffixes to align primary and foreign keys across systems.
-  * Added `dwh_create_date` audit timestamps using `CURRENT_TIMESTAMP()`.
-* **Materialization:** Deployed as Snowflake Views.
+Data quality is rigorously enforced via dbt YAML tests (unique, not_null on primary and foreign keys) that execute before any model is deployed. If a test fails, the build is blocked from reaching production. Additionally, data lineage is fully documented; dbt generates a visual DAG (Directed Acyclic Graph) showing exactly how every final table was constructed and exactly which source tables feed it.
 
-### 3. Marts Layer (Gold)
-* **Objective:** Deliver a Kimball-style Star Schema optimized for BI tools (e.g., Power BI, Tableau).
-* **Transformations applied via dbt:**
-  * Built `dim_customers` and `dim_products` by joining CRM and ERP data, handling missing legacy attributes via `COALESCE`.
-  * Preserved historical product records to maintain data integrity in the fact table.
-  * Built `fact_sales` by joining cleansed transaction data to surrogate keys.
-  * Applied business-friendly aliasing for final presentation.
-* **Materialization:** Deployed as Snowflake Tables for high query performance.
+## Technical Workflow
+* **Cloud Compute & Storage:** Snowflake, Google Cloud Platform (GCP)
+* **Transformation & Orchestration:** dbt (Data Build Tool) Cloud
+* **Version Control:** Git / GitHub
+* **Techniques:** CTEs, Materialization Strategy (Views vs. Tables), Surrogate Key Generation, YAML Testing
 
-## Automated Data Quality & Testing
-A critical component of this pipeline is automated Quality Assurance (QA). Instead of writing manual validation scripts, data integrity is enforced via dbt YAML configurations.
-
-* **Primary Key Integrity:** `unique` and `not_null` tests applied to all surrogate keys in the dimension tables.
-* **Referential Integrity:** `not_null` tests applied to all foreign keys in the fact table to ensure no orphan records exist.
-* **Source Alignment:** Staging models are rigorously tested to catch anomalies before they enter the Gold layer.
-
-## Repository Structure
-```text
-├── models/
-│   ├── staging/          # Silver layer transformations and stg_models.yml tests
-│   ├── marts/            # Gold layer Star Schema models and marts_models.yml tests
-│   └── sources.yml       # Snowflake raw database mapping
-├── dbt_project.yml       # Core dbt configuration file
-└── README.md
+### How to Run
+1. Clone the repository and navigate to 04_data
